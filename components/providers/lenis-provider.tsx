@@ -13,7 +13,6 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
     const lenis = new Lenis({
       duration: 1.05,
       smoothWheel: true,
-      smoothTouch: false,
       syncTouch: false,
       touchMultiplier: 1
     });
