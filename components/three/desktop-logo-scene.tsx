@@ -16,21 +16,23 @@ type ActiveOnlyProps = {
 };
 
 const DIAMOND_GEOMETRY = new THREE.BoxGeometry(1.18, 1.18, 0.34);
+
 const DROP_GEOMETRY = new THREE.SphereGeometry(1, 14, 14);
+
 const FLOOR_GEOMETRY = new THREE.PlaneGeometry(8, 8);
 
 const PRIMARY_MATERIAL = new THREE.MeshStandardMaterial({
   color: "#9f0707",
   metalness: 0.18,
   roughness: 0.42,
-  emissive: "#2a0000"
+  emissive: "#2a0000",
 });
 
 const DROP_MATERIAL = new THREE.MeshStandardMaterial({
   color: "#b70000",
   metalness: 0.06,
   roughness: 0.36,
-  emissive: "#4b0000"
+  emissive: "#4b0000",
 });
 
 function SceneTicker({ active }: ActiveOnlyProps) {
@@ -52,7 +54,10 @@ function SceneTicker({ active }: ActiveOnlyProps) {
     };
 
     frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [active, invalidate]);
 
   return null;
@@ -60,7 +65,7 @@ function SceneTicker({ active }: ActiveOnlyProps) {
 
 const Diamond = memo(function Diamond({
   position,
-  scale = [1, 1, 0.4]
+  scale = [1, 1, 0.4],
 }: {
   position: [number, number, number];
   scale?: [number, number, number];
@@ -79,33 +84,52 @@ const Diamond = memo(function Diamond({
 });
 
 const Crack = memo(function Crack({ active }: ActiveOnlyProps) {
-  const lineGeometry = useMemo(() => {
-    const points = new Float32Array([
-      0.02, -0.2, 0.2, -0.08, -0.58, 0.2, 0.06, -0.96, 0.21, -0.02, -1.42, 0.22
-    ]);
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(points, 3));
-    return geometry;
-  }, []);
-  const materialRef = useRef<THREE.LineBasicMaterial>(null);
+  const lineRef = useRef<THREE.Line>(null);
 
   useFrame((state) => {
-    if (!materialRef.current) return;
+    if (!lineRef.current) return;
+
+    const material = lineRef.current
+      .material as THREE.LineBasicMaterial;
 
     if (!active) {
-      materialRef.current.opacity = 0.58;
+      material.opacity = 0.58;
       return;
     }
 
-    const glow = (Math.sin(state.clock.elapsedTime * 1.5) + 1) / 2;
-    materialRef.current.opacity = 0.55 + glow * 0.22;
+    const glow =
+      (Math.sin(state.clock.elapsedTime * 1.5) + 1) / 2;
+
+    material.opacity = 0.55 + glow * 0.22;
   });
+
+  const lineObject = useMemo(() => {
+    const points = [
+      new THREE.Vector3(0.02, -0.2, 0.2),
+      new THREE.Vector3(-0.08, -0.58, 0.2),
+      new THREE.Vector3(0.06, -0.96, 0.21),
+      new THREE.Vector3(-0.02, -1.42, 0.22),
+    ];
+
+    const geometry =
+      new THREE.BufferGeometry().setFromPoints(points);
+
+    const material = new THREE.LineBasicMaterial({
+      color: "#ff3030",
+      transparent: true,
+      opacity: 0.62,
+    });
+
+    return new THREE.Line(geometry, material);
+  }, []);
 
   return (
     <>
-      <line geometry={lineGeometry}>
-        <lineBasicMaterial ref={materialRef} color="#ff3030" transparent opacity={0.62} />
-      </line>
+      <primitive
+        ref={lineRef}
+        object={lineObject}
+      />
+
       <mesh
         geometry={DROP_GEOMETRY}
         material={DROP_MATERIAL}
@@ -118,31 +142,39 @@ const Crack = memo(function Crack({ active }: ActiveOnlyProps) {
 
 function LogoGroup({ active }: ActiveOnlyProps) {
   const groupRef = useRef<THREE.Group>(null);
+
   const pointer = useThree((state) => state.pointer);
+
   const clock = useThree((state) => state.clock);
 
   useFrame(() => {
     if (!active || !groupRef.current) return;
 
     const t = clock.getElapsedTime();
+
     groupRef.current.rotation.y = THREE.MathUtils.lerp(
       groupRef.current.rotation.y,
       pointer.x * 0.12,
       0.05
     );
+
     groupRef.current.rotation.x = THREE.MathUtils.lerp(
       groupRef.current.rotation.x,
       pointer.y * -0.08,
       0.05
     );
+
     groupRef.current.position.y = Math.sin(t * 0.8) * 0.06;
   });
 
   return (
     <group ref={groupRef} position={[0, 0.22, 0]}>
       <Diamond position={[-1.05, 0.92, 0]} />
+
       <Diamond position={[1.05, 0.92, 0]} />
+
       <Diamond position={[0, -0.04, 0]} scale={[1.08, 1.08, 0.4]} />
+
       <Crack active={active} />
     </group>
   );
@@ -150,8 +182,11 @@ function LogoGroup({ active }: ActiveOnlyProps) {
 
 function LogoScene({ active, tone }: SceneProps) {
   const ambientRef = useRef<THREE.AmbientLight>(null);
+
   const directionalRef = useRef<THREE.DirectionalLight>(null);
+
   const pointRef = useRef<THREE.PointLight>(null);
+
   const toneRef = useRef(tone.get());
 
   useMotionValueEvent(tone, "change", (value) => {
@@ -161,16 +196,31 @@ function LogoScene({ active, tone }: SceneProps) {
   useFrame(() => {
     const liveTone = toneRef.current;
 
-    if (ambientRef.current) ambientRef.current.intensity = 0.78 + liveTone * 0.2;
-    if (directionalRef.current) directionalRef.current.intensity = 1.45 + liveTone * 0.35;
-    if (pointRef.current) pointRef.current.intensity = 0.72 + liveTone * 0.26;
+    if (ambientRef.current) {
+      ambientRef.current.intensity = 0.78 + liveTone * 0.2;
+    }
+
+    if (directionalRef.current) {
+      directionalRef.current.intensity = 1.45 + liveTone * 0.35;
+    }
+
+    if (pointRef.current) {
+      pointRef.current.intensity = 0.72 + liveTone * 0.26;
+    }
   });
 
   return (
     <>
       <color attach="background" args={["#000000"]} />
+
       <fog attach="fog" args={["#000000", 4.8, 9.5]} />
-      <ambientLight ref={ambientRef} intensity={0.82} color="#f0dede" />
+
+      <ambientLight
+        ref={ambientRef}
+        intensity={0.82}
+        color="#f0dede"
+      />
+
       <directionalLight
         ref={directionalRef}
         castShadow
@@ -180,18 +230,36 @@ function LogoScene({ active, tone }: SceneProps) {
         shadow-mapSize-width={512}
         shadow-mapSize-height={512}
       />
-      <pointLight ref={pointRef} intensity={0.8} position={[0, -0.5, 2.4]} color="#a10000" />
+
+      <pointLight
+        ref={pointRef}
+        intensity={0.8}
+        position={[0, -0.5, 2.4]}
+        color="#a10000"
+      />
+
       <LogoGroup active={active} />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.4, 0]} geometry={FLOOR_GEOMETRY} receiveShadow>
+
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -2.4, 0]}
+        geometry={FLOOR_GEOMETRY}
+        receiveShadow
+      >
         <shadowMaterial opacity={0.18} />
       </mesh>
+
       <SceneTicker active={active} />
     </>
   );
 }
 
-export function DesktopLogoScene({ active, tone }: SceneProps) {
+export function DesktopLogoScene({
+  active,
+  tone,
+}: SceneProps) {
   const pageVisible = usePageVisibility();
+
   const shouldAnimate = active && pageVisible;
 
   return (
@@ -202,10 +270,20 @@ export function DesktopLogoScene({ active, tone }: SceneProps) {
           shadows
           frameloop="demand"
           performance={{ min: 0.8 }}
-          gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
-          camera={{ position: [0, 0, 5.8], fov: 32 }}
+          gl={{
+            antialias: false,
+            alpha: true,
+            powerPreference: "high-performance",
+          }}
+          camera={{
+            position: [0, 0, 5.8],
+            fov: 32,
+          }}
         >
-          <LogoScene active={shouldAnimate} tone={tone} />
+          <LogoScene
+            active={shouldAnimate}
+            tone={tone}
+          />
         </Canvas>
       </Suspense>
     </div>
